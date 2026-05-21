@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>text fall</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: black;
+      color: #fff;
+      font-family: "Playfair Display", Georgia, serif;
+      font-style: normal;
+      --text-size: clamp(30px, 3.6vw, 54px);
+    }
+
+    .page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      overflow: hidden;
+    }
+
+    .headline {
+      position: absolute;
+      left: 50%;
+      top: 55%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      text-align: center;
+      font-size: var(--text-size);
+      line-height: 1.18;
+      letter-spacing: -0.045em;
+      z-index: 5;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .phrase-row {
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 10px;
+      max-width: 96vw;
+      overflow: visible;
+    }
+
+    .slot {
+      display: inline-block;
+      overflow: visible;
+      transform-origin: center;
+      transition: width 300ms ease-out, transform 300ms ease, opacity 300ms ease;
+      white-space: nowrap;
+      padding: 0 14px;
+      margin: 0 -14px;
+    }
+
+    .slot-inner {
+      display: inline-block;
+      transition: opacity 250ms ease;
+      white-space: nowrap;
+      line-height: 1.18;
+    }
+
+    .and {
+      transition: opacity 450ms ease;
+    }
+
+    .and.hide {
+      opacity: 0;
+    }
+
+    .word {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: inline-block;
+      color: #fff;
+      font-size: var(--text-size);
+      line-height: 1.05;
+      white-space: nowrap;
+      user-select: none;
+      pointer-events: auto;
+      z-index: 3;
+      will-change: transform, opacity;
+      opacity: 1;
+      padding: 0 14px;
+      cursor: grab;
+    }
+
+    .word:active {
+      cursor: grabbing;
+    }
+  </style>
+</head>
+<body>
+  <main class="page" id="page">
+    <section class="headline" id="headline">
+      <div>I bridge...</div>
+      <div class="phrase-row">
+        <span class="slot" id="slotA"><span class="slot-inner" id="slotAInner">People</span></span>
+        <span class="and" id="andWord">and</span>
+        <span class="slot" id="slotB"><span class="slot-inner" id="slotBInner">Systems</span></span>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <script>
+    const {
+      Engine,
+      Runner,
+      Bodies,
+      Body,
+      Composite,
+      Mouse,
+      MouseConstraint,
+      Events
+    } = Matter;
+
+    const page = document.getElementById("page");
+    const slotA = document.getElementById("slotA");
+    const slotB = document.getElementById("slotB");
+    const slotAInner = document.getElementById("slotAInner");
+    const slotBInner = document.getElementById("slotBInner");
+    const andWord = document.getElementById("andWord");
+
+    const WORD_PAIRS = [
+      ["People", "Systems"],
+      ["Support", "Strategy"],
+      ["IT", "Product"],
+      ["Research", "Usability"],
+      ["Service", "Design"],
+      ["Data", "Decisions"],
+      ["Experience", "Design"],
+      ["UX", "UI"],
+      ["Information", "Architecture"],
+      ["Interaction", "Design"],
+      ["Content", "Strategy"],
+      ["Design", "Ops"]
+    ];
+
+    const engine = Engine.create();
+    engine.gravity.y = 0.8;
+    engine.positionIterations = 10;
+    engine.velocityIterations = 8;
+
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    let floorBody;
+    let leftWall;
+    let rightWall;
+    let bodies = [];
+    let pairIndex = 0;
+    let cycleStarted = false;
+
+    function setBoundaries() {
+      if (floorBody) {
+        Composite.remove(engine.world, floorBody);
+        Composite.remove(engine.world, leftWall);
+        Composite.remove(engine.world, rightWall);
+      }
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      floorBody = Bodies.rectangle(w / 2, h + 48, w + 300, 100, {
+        isStatic: true,
+        friction: 1,
+        restitution: 0
+      });
+
+      leftWall = Bodies.rectangle(-60, h / 2, 120, h * 2, {
+        isStatic: true,
+        friction: 1,
+        restitution: 0
+      });
+
+      rightWall = Bodies.rectangle(w + 60, h / 2, 120, h * 2, {
+        isStatic: true,
+        friction: 1,
+        restitution: 0
+      });
+
+      Composite.add(engine.world, [floorBody, leftWall, rightWall]);
+    }
+
+    setBoundaries();
+    window.addEventListener("resize", setBoundaries);
+
+    function measureWord(text) {
+      const probe = document.createElement("span");
+      probe.className = "word";
+      probe.textContent = text;
+      probe.style.visibility = "hidden";
+      probe.style.transform = "translate(-9999px, -9999px)";
+      page.appendChild(probe);
+      const rect = probe.getBoundingClientRect();
+      probe.remove();
+      return rect;
+    }
+
+    function createPhysicsWord(text, x, y) {
+      const element = document.createElement("div");
+      element.className = "word";
+      element.textContent = text;
+      page.appendChild(element);
+
+      const rect = measureWord(text);
+      const width = Math.max(rect.width, 28);
+      const height = Math.max(rect.height, 28);
+
+      const body = Bodies.rectangle(x, y, width, height, {
+        friction: 0.92,
+        frictionStatic: 1,
+        frictionAir: 0.018,
+        restitution: 0.05,
+        density: 0.004,
+        slop: 0.01,
+        chamfer: { radius: 0 }
+      });
+
+      body.renderElement = element;
+      body.renderWidth = width;
+      body.renderHeight = height;
+      body.createdAt = performance.now();
+      body.fadeAfter = 16500;
+      body.removeAfter = 18200;
+
+      Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.018);
+      Body.setVelocity(body, {
+        x: (Math.random() - 0.5) * 0.25,
+        y: 0.2
+      });
+
+      Composite.add(engine.world, body);
+      bodies.push(body);
+      return body;
+    }
+
+    function dropCurrentWords() {
+      const textA = WORD_PAIRS[pairIndex % WORD_PAIRS.length][0];
+      const textB = WORD_PAIRS[pairIndex % WORD_PAIRS.length][1];
+
+      const rectA = slotA.getBoundingClientRect();
+      const rectB = slotB.getBoundingClientRect();
+
+      andWord.classList.add("hide");
+      slotAInner.style.opacity = "0";
+      slotBInner.style.opacity = "0";
+
+      setTimeout(() => {
+        slotA.style.width = "0px";
+        slotB.style.width = "0px";
+      }, 90);
+
+      createPhysicsWord(textA, rectA.left + rectA.width / 2, rectA.top + rectA.height / 2);
+
+      setTimeout(() => {
+        createPhysicsWord(textB, rectB.left + rectB.width / 2, rectB.top + rectB.height / 2);
+      }, 90);
+    }
+
+    function setPhrase(pair) {
+      slotAInner.textContent = pair[0];
+      slotBInner.textContent = pair[1];
+
+      slotA.style.transition = "none";
+      slotB.style.transition = "none";
+      slotA.style.width = "auto";
+      slotB.style.width = "auto";
+
+      const widthA = slotAInner.getBoundingClientRect().width + 32;
+      const widthB = slotBInner.getBoundingClientRect().width + 32;
+
+      slotA.style.width = widthA + "px";
+      slotB.style.width = widthB + "px";
+
+      requestAnimationFrame(() => {
+        slotA.style.transition = "width 300ms ease-out, transform 300ms ease, opacity 300ms ease";
+        slotB.style.transition = "width 300ms ease-out, transform 300ms ease, opacity 300ms ease";
+        slotAInner.style.opacity = "1";
+        slotBInner.style.opacity = "1";
+        andWord.classList.remove("hide");
+      });
+    }
+
+    function cycle() {
+      dropCurrentWords();
+
+      setTimeout(() => {
+        pairIndex++;
+        setPhrase(WORD_PAIRS[pairIndex % WORD_PAIRS.length]);
+      }, 1100);
+    }
+
+    function renderBodies() {
+      const now = performance.now();
+
+      for (const body of bodies) {
+        const element = body.renderElement;
+        const x = body.position.x - body.renderWidth / 2;
+        const y = body.position.y - body.renderHeight / 2;
+
+        element.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
+
+        if (now - body.createdAt > body.fadeAfter) {
+          element.style.transition = "opacity 800ms ease";
+          element.style.opacity = "0";
+        }
+      }
+
+      bodies = bodies.filter(body => {
+        const shouldRemove = now - body.createdAt > body.removeAfter || body.position.y > window.innerHeight + 400;
+        if (shouldRemove) {
+          body.renderElement.remove();
+          Composite.remove(engine.world, body);
+        }
+        return !shouldRemove;
+      });
+
+      requestAnimationFrame(renderBodies);
+    }
+
+    const mouse = Mouse.create(page);
+    const mouseConstraint = MouseConstraint.create(engine, {
+      mouse,
+      constraint: {
+        stiffness: 0.12,
+        damping: 0.15,
+        render: { visible: false }
+      }
+    });
+
+    Composite.add(engine.world, mouseConstraint);
+
+    Events.on(mouseConstraint, "startdrag", event => {
+      const body = event.body;
+      if (body && body.renderElement) body.renderElement.style.cursor = "grabbing";
+    });
+
+    Events.on(mouseConstraint, "enddrag", event => {
+      const body = event.body;
+      if (body && body.renderElement) body.renderElement.style.cursor = "grab";
+    });
+
+    setPhrase(WORD_PAIRS[0]);
+    renderBodies();
+
+    setTimeout(() => {
+      if (cycleStarted) return;
+      cycleStarted = true;
+      cycle();
+      setInterval(cycle, 4000);
+    }, 900);
+  </script>
+</body>
+</html>
