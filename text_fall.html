@@ -20,8 +20,8 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: black;
-      color: #fff;
+      background: white;
+      color: #1e73ff;
       font-family: "Playfair Display", Georgia, serif;
       font-style: normal;
       --text-size: clamp(30px, 3.6vw, 54px);
@@ -31,7 +31,7 @@
       position: relative;
       width: 100vw;
       height: 100vh;
-      background: black;
+      background: white;
       overflow: hidden;
     }
 
@@ -63,7 +63,7 @@
       display: inline-block;
       overflow: visible;
       transform-origin: center;
-      transition: width 300ms ease-out, transform 300ms ease, opacity 300ms ease;
+      transition: none;
       white-space: nowrap;
       padding: 0 14px;
       margin: 0 -14px;
@@ -71,13 +71,13 @@
 
     .slot-inner {
       display: inline-block;
-      transition: opacity 250ms ease;
+      transition: none;
       white-space: nowrap;
       line-height: 1.18;
     }
 
     .and {
-      transition: opacity 450ms ease;
+      transition: none;
     }
 
     .and.hide {
@@ -89,7 +89,7 @@
       left: 0;
       top: 0;
       display: inline-block;
-      color: #fff;
+      color: #1e73ff;
       font-size: var(--text-size);
       line-height: 1.05;
       white-space: nowrap;
@@ -107,19 +107,28 @@
     }
   </style>
 </head>
+
 <body>
   <main class="page" id="page">
     <section class="headline" id="headline">
       <div>I bridge...</div>
+
       <div class="phrase-row">
-        <span class="slot" id="slotA"><span class="slot-inner" id="slotAInner">People</span></span>
+        <span class="slot" id="slotA">
+          <span class="slot-inner" id="slotAInner">People</span>
+        </span>
+
         <span class="and" id="andWord">and</span>
-        <span class="slot" id="slotB"><span class="slot-inner" id="slotBInner">Systems</span></span>
+
+        <span class="slot" id="slotB">
+          <span class="slot-inner" id="slotBInner">Systems</span>
+        </span>
       </div>
     </section>
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
   <script>
     const {
       Engine,
@@ -210,8 +219,10 @@
       probe.style.visibility = "hidden";
       probe.style.transform = "translate(-9999px, -9999px)";
       page.appendChild(probe);
+
       const rect = probe.getBoundingClientRect();
       probe.remove();
+
       return rect;
     }
 
@@ -243,13 +254,15 @@
       body.removeAfter = 18200;
 
       Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.018);
+
       Body.setVelocity(body, {
-        x: (Math.random() - 0.5) * 0.25,
+        x: 0,
         y: 0.2
       });
 
       Composite.add(engine.world, body);
       bodies.push(body);
+
       return body;
     }
 
@@ -260,20 +273,23 @@
       const rectA = slotA.getBoundingClientRect();
       const rectB = slotB.getBoundingClientRect();
 
+      createPhysicsWord(
+        textA,
+        rectA.left + rectA.width / 2,
+        rectA.top + rectA.height / 2
+      );
+
+      createPhysicsWord(
+        textB,
+        rectB.left + rectB.width / 2,
+        rectB.top + rectB.height / 2
+      );
+
       andWord.classList.add("hide");
       slotAInner.style.opacity = "0";
       slotBInner.style.opacity = "0";
-
-      setTimeout(() => {
-        slotA.style.width = "0px";
-        slotB.style.width = "0px";
-      }, 90);
-
-      createPhysicsWord(textA, rectA.left + rectA.width / 2, rectA.top + rectA.height / 2);
-
-      setTimeout(() => {
-        createPhysicsWord(textB, rectB.left + rectB.width / 2, rectB.top + rectB.height / 2);
-      }, 90);
+      slotA.style.width = "0px";
+      slotB.style.width = "0px";
     }
 
     function setPhrase(pair) {
@@ -291,13 +307,9 @@
       slotA.style.width = widthA + "px";
       slotB.style.width = widthB + "px";
 
-      requestAnimationFrame(() => {
-        slotA.style.transition = "width 300ms ease-out, transform 300ms ease, opacity 300ms ease";
-        slotB.style.transition = "width 300ms ease-out, transform 300ms ease, opacity 300ms ease";
-        slotAInner.style.opacity = "1";
-        slotBInner.style.opacity = "1";
-        andWord.classList.remove("hide");
-      });
+      slotAInner.style.opacity = "1";
+      slotBInner.style.opacity = "1";
+      andWord.classList.remove("hide");
     }
 
     function cycle() {
@@ -326,11 +338,15 @@
       }
 
       bodies = bodies.filter(body => {
-        const shouldRemove = now - body.createdAt > body.removeAfter || body.position.y > window.innerHeight + 400;
+        const shouldRemove =
+          now - body.createdAt > body.removeAfter ||
+          body.position.y > window.innerHeight + 400;
+
         if (shouldRemove) {
           body.renderElement.remove();
           Composite.remove(engine.world, body);
         }
+
         return !shouldRemove;
       });
 
@@ -338,12 +354,15 @@
     }
 
     const mouse = Mouse.create(page);
+
     const mouseConstraint = MouseConstraint.create(engine, {
       mouse,
       constraint: {
         stiffness: 0.12,
         damping: 0.15,
-        render: { visible: false }
+        render: {
+          visible: false
+        }
       }
     });
 
@@ -351,12 +370,18 @@
 
     Events.on(mouseConstraint, "startdrag", event => {
       const body = event.body;
-      if (body && body.renderElement) body.renderElement.style.cursor = "grabbing";
+
+      if (body && body.renderElement) {
+        body.renderElement.style.cursor = "grabbing";
+      }
     });
 
     Events.on(mouseConstraint, "enddrag", event => {
       const body = event.body;
-      if (body && body.renderElement) body.renderElement.style.cursor = "grab";
+
+      if (body && body.renderElement) {
+        body.renderElement.style.cursor = "grab";
+      }
     });
 
     setPhrase(WORD_PAIRS[0]);
@@ -364,6 +389,7 @@
 
     setTimeout(() => {
       if (cycleStarted) return;
+
       cycleStarted = true;
       cycle();
       setInterval(cycle, 4000);
